@@ -39,7 +39,8 @@ def is_ipv6(ip):
 
 
 def get_ip(request):
-    ip = request.META.get('REMOTE_ADDR', '')
+    """Parse IP address from REMOTE_ADDR or
+    AXES_REVERSE_PROXY_HEADER if AXES_BEHIND_REVERSE_PROXY is set."""
 
     if BEHIND_REVERSE_PROXY:
         ip = request.META.get(REVERSE_PROXY_HEADER, '').split(',', 1)[0]
@@ -51,11 +52,21 @@ def get_ip(request):
                 'server settings to make sure this header value is being '
                 'passed. Header value {0}'.format(REVERSE_PROXY_HEADER)
             )
-        if not is_ipv6(ip):
-            # Fix for IIS adding client port number to 'HTTP_X_FORWARDED_FOR' header (removes port number).
-            ip = ''.join(ip.split(':')[:-1])
 
-    return ip
+        # X-Forwarded-For IPs can have multiple IPs of which the first one is the
+        # originating reverse and the rest are proxies that are between the client
+        ip = ip.split(',', 1)[0]
+
+        # As spaces are permitted between given X-Forwarded-For IP addresses, strip them as well
+        ip = ip.strip()
+
+        # Fix IIS adding client port number to 'X-Forwarded-For' header (strip port)
+        if not is_ipv6(ip):
+            ip = ip.split(':', 1)[0]
+
+        return ip
+
+    return request.META.get('REMOTE_ADDR', '')
 
 
 def query2str(items, max_length=1024):
