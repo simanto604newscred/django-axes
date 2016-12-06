@@ -87,7 +87,9 @@ class AccessAttemptTest(TestCase):
             password=self.VALID_PASSWORD,
         )
 
-    def test_failure_limit_once(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_failure_limit_once(self, cache_get_mock, cache_set_mock):
         """Tests the login lock trying to login one more time
         than failure limit
         """
@@ -117,13 +119,17 @@ class AccessAttemptTest(TestCase):
             response = self._login()
             self.assertContains(response, self.LOCKED_MESSAGE, status_code=403)
 
-    def test_valid_login(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_valid_login(self, cache_set_mock, cache_get_mock):
         """Tests a valid login for a real username
         """
         response = self._login(is_valid_username=True, is_valid_password=True)
         self.assertNotContains(response, self.LOGIN_FORM_KEY, status_code=302)
 
-    def test_valid_logout(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_valid_logout(self, cache_set_mock, cache_get_mock):
         """Tests a valid logout and make sure the logout_time is updated
         """
         response = self._login(is_valid_username=True, is_valid_password=True)
@@ -153,7 +159,9 @@ class AccessAttemptTest(TestCase):
         # Try the cooling off time
         self.test_cooling_off()
 
-    def test_long_user_agent_valid(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_long_user_agent_valid(self, cache_set_mock, cache_get_mock):
         """Tests if can handle a long user agent
         """
         long_user_agent = 'ie6' * 1024
@@ -222,7 +230,10 @@ class AccessAttemptTest(TestCase):
         self.assertEquals(scope.signal_received, 2)
 
     @patch('axes.decorators.LOCK_OUT_BY_COMBINATION_USER_AND_IP', True)
-    def test_lockout_by_combination_user_and_ip(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_lockout_by_combination_user_and_ip(self, cache_set_mock,
+                                                cache_get_mock):
         """Tests the login lock with a valid username and invalid password
         when AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP is True
         """
@@ -241,7 +252,9 @@ class AccessAttemptTest(TestCase):
         self.assertContains(response, self.LOCKED_MESSAGE, status_code=403)
 
     @override_settings(AXES_ONLY_USER_FAILURES=True)
-    def test_lockout_by_user_only(self):
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_lockout_by_user_only(self, cache_set_mock, cache_get_mock):
         """Tests the login lock with a valid username and invalid password
         when AXES_ONLY_USER_FAILURES is True
         """
@@ -278,7 +291,10 @@ class AccessAttemptTest(TestCase):
         response = self._login(is_valid_username=True, is_valid_password=True)
         self.assertNotContains(response, self.LOGIN_FORM_KEY, status_code=302)
 
-    def test_log_data_truncated(self):
+
+    @patch('axes.decorators.cache.set', return_value=None)
+    @patch('axes.decorators.cache.get', return_value=None)
+    def test_log_data_truncated(self, cache_set_mock, cache_get_mock):
         """Tests that query2str properly truncates data to the
         max_length (default 1024)
         """
