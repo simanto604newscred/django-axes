@@ -53,10 +53,14 @@ def get_ip(request):
         ip = ip.strip()
         if not ip:
             raise Warning(
-                'AXES: Axes is configured for operation behind a reverse proxy '
-                'but could not find an HTTP header value. Check your proxy '
-                'server settings to make sure this header value is being '
-                'passed. Header name {0}'.format(REVERSE_PROXY_HEADER)
+                'AXES: Axes is configured for operation behind a reverse '
+                'proxy but could not find a suitable IP in the specified '
+                'HTTP header. Check your proxy server settings to make '
+                'sure correct headers are being passed to Django in '
+                'AXES_REVERSE_PROXY_HEADER. '
+                'Header name: {0}, value: {1}'.format(
+                    REVERSE_PROXY_HEADER, ip_str
+                )
             )
 
         return ip
