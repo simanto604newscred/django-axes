@@ -28,6 +28,12 @@ if VERBOSE:
 if BEHIND_REVERSE_PROXY:
     log.debug('Axes is configured to be behind reverse proxy')
     log.debug('Looking for header value %s', REVERSE_PROXY_HEADER)
+    log.debug(
+        'Number of proxies configured: {} '
+        '(please check this if you are using a custom header)'.format(
+            NUM_PROXIES
+        )
+    )
 
 
 def is_ipv6(ip):
@@ -50,19 +56,8 @@ def get_ip(request):
                 'Axes is configured for operation behind a reverse proxy '
                 'but could not find an HTTP header value. Check your proxy '
                 'server settings to make sure this header value is being '
-                'passed. Header value {0}'.format(REVERSE_PROXY_HEADER)
+                'passed. Header name {0}'.format(REVERSE_PROXY_HEADER)
             )
-
-        # X-Forwarded-For IPs can have multiple IPs of which the first one is the
-        # originating reverse and the rest are proxies that are between the client
-        ip = ip.split(',', 1)[0]
-
-        # As spaces are permitted between given X-Forwarded-For IP addresses, strip them as well
-        ip = ip.strip()
-
-        # Fix IIS adding client port number to 'X-Forwarded-For' header (strip port)
-        if not is_ipv6(ip):
-            ip = ip.split(':', 1)[0]
 
         return ip
 
