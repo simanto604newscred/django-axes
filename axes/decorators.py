@@ -23,6 +23,12 @@ log = logging.getLogger(LOGGER)
 if VERBOSE:
     log.info('AXES: BEGIN LOG')
     log.info('AXES: Using django-axes ' + axes.get_version())
+    if AXES_ONLY_USER_FAILURES:
+        log.info('AXES: blocking by username only.')
+    elif LOCK_OUT_BY_COMBINATION_USER_AND_IP:
+        log.info('AXES: blocking by combination of username and IP.')
+    else:
+        log.info('AXES: blocking by IP only.')
 
 
 if BEHIND_REVERSE_PROXY:
@@ -375,10 +381,21 @@ def check_request(request, login_unsuccessful):
                 attempt.failures_since_start = failures
                 attempt.attempt_time = datetime.now()
                 attempt.save()
-                log.info(
-                    'AXES: Repeated login failure by %s. Updating access '
-                    'record. Count = %s' % (attempt.ip_address, failures)
+
+                if AXES_ONLY_USER_FAILURES:
+                    block_msg = 'for {0}.'.format(attempt.username)
+                elif LOCK_OUT_BY_COMBINATION_USER_AND_IP:
+                    block_msg = 'for {0} from {1}.'.format(
+                        attempt.username, attempt.ip_address
+                    )
+                else:
+                    block_msg = 'from {0}.'.format(attempt.ip_address)
+                count_msg = 'Updating access record. Count = {0} of {1}'.format(
+                    failures, FAILURE_LIMIT
                 )
+                log.info('AXES: Repeated login failure {0} {1}'.format(
+                    block_msg, count_msg
+                ))
         else:
             create_new_failure_records(request, failures)
     else:
@@ -452,7 +469,15 @@ def create_new_failure_records(request, failures):
         path_info=request.META.get('PATH_INFO', '<unknown>'),
         failures_since_start=failures,
     )
-    log.info('AXES: New login failure by %s. Creating access record.' % (ip,))
+
+    msg = 'AXES: New login failure by {0}. Creating access record.'
+    username = request.POST.get(USERNAME_FORM_FIELD, None)
+    if AXES_ONLY_USER_FAILURES:
+        log.info(msg.format(username))
+    elif LOCK_OUT_BY_COMBINATION_USER_AND_IP:
+        log.info(msg.format('{0} from {1}'.format(username, ip)))
+    else:
+        log.info(msg.format(ip))
 
 
 def create_new_trusted_record(request):
