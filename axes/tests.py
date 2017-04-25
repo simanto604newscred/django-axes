@@ -15,7 +15,7 @@ from django.core.urlresolvers import reverse
 from django.utils import six
 from django.test.client import RequestFactory
 
-from axes.decorators import get_ip, get_cache_key
+from axes.decorators import get_ip, get_cache_key, get_client_str
 from axes.settings import COOLOFF_TIME
 from axes.settings import FAILURE_LIMIT
 from axes.models import AccessAttempt, AccessLog
@@ -936,6 +936,31 @@ class UtilsTest(TestCase):
         self.assertTrue(is_ipv6('ff80::220:16ff:fec9:1'))
         self.assertFalse(is_ipv6('67.255.125.204'))
         self.assertFalse(is_ipv6('foo'))
+
+    @patch('axes.decorators.VERBOSE', True)
+    def test_verbose_client_details(self):
+        username = 'test@example.com'
+        ip = '127.0.0.1'
+        user_agent = 'Googlebot/2.1 (+http://www.googlebot.com/bot.html)'
+        path_info = '/admin/'
+        details = "{{user: '{0}', ip: '{1}', user-agent: '{2}', path: '{3}'}}"
+
+        expected = details.format(username, ip, user_agent, path_info)
+        actual = get_client_str(username, ip, user_agent, path_info)
+
+        self.assertEqual(expected, actual)
+
+    @patch('axes.decorators.VERBOSE', False)
+    def test_non_verbose_client_details(self):
+        username = 'test@example.com'
+        ip = '127.0.0.1'
+        user_agent = 'Googlebot/2.1 (+http://www.googlebot.com/bot.html)'
+        path_info = '/admin/'
+
+        expected = ip
+        actual = get_client_str(username, ip, user_agent, path_info)
+
+        self.assertEqual(expected, actual)
 
 
 class GetIPProxyTest(TestCase):
