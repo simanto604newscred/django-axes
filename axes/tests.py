@@ -15,12 +15,14 @@ from django.core.urlresolvers import reverse
 from django.utils import six
 from django.test.client import RequestFactory
 
-from axes.decorators import get_ip, get_cache_key, get_client_str
-from axes.settings import COOLOFF_TIME
+from axes.decorators import get_ip, get_cache_key
 from axes.settings import FAILURE_LIMIT
 from axes.models import AccessAttempt, AccessLog
 from axes.signals import user_locked_out
 from axes.utils import reset, iso8601
+
+
+TEST_COOLOFF_TIME = datetime.timedelta(seconds=2)
 
 
 class MockRequest:
@@ -140,17 +142,19 @@ class AccessAttemptTest(TestCase):
         self.assertNotEquals(AccessLog.objects.latest('id').logout_time, None)
         self.assertContains(response, 'Logged out')
 
+    @patch('axes.decorators.COOLOFF_TIME', TEST_COOLOFF_TIME)
     def test_cooling_off(self):
         """Tests if the cooling time allows a user to login
         """
         self.test_failure_limit_once()
 
         # Wait for the cooling off period
-        time.sleep(COOLOFF_TIME.total_seconds())
+        time.sleep(TEST_COOLOFF_TIME.total_seconds())
 
         # It should be possible to login again, make sure it is.
         self.test_valid_login()
 
+    @patch('axes.decorators.COOLOFF_TIME', TEST_COOLOFF_TIME)
     def test_cooling_off_for_trusted_user(self):
         """Test the cooling time for a trusted user
         """
@@ -937,31 +941,6 @@ class UtilsTest(TestCase):
         self.assertFalse(is_ipv6('67.255.125.204'))
         self.assertFalse(is_ipv6('foo'))
 
-    @patch('axes.decorators.VERBOSE', True)
-    def test_verbose_client_details(self):
-        username = 'test@example.com'
-        ip = '127.0.0.1'
-        user_agent = 'Googlebot/2.1 (+http://www.googlebot.com/bot.html)'
-        path_info = '/admin/'
-        details = "{{user: '{0}', ip: '{1}', user-agent: '{2}', path: '{3}'}}"
-
-        expected = details.format(username, ip, user_agent, path_info)
-        actual = get_client_str(username, ip, user_agent, path_info)
-
-        self.assertEqual(expected, actual)
-
-    @patch('axes.decorators.VERBOSE', False)
-    def test_non_verbose_client_details(self):
-        username = 'test@example.com'
-        ip = '127.0.0.1'
-        user_agent = 'Googlebot/2.1 (+http://www.googlebot.com/bot.html)'
-        path_info = '/admin/'
-
-        expected = ip
-        actual = get_client_str(username, ip, user_agent, path_info)
-
-        self.assertEqual(expected, actual)
-
 
 class GetIPProxyTest(TestCase):
     """Test get_ip returns correct addresses with proxy
@@ -1025,33 +1004,3 @@ class GetIPProxyCustomHeaderTest(TestCase):
         for header in valid_headers:
             self.request.META[settings.AXES_REVERSE_PROXY_HEADER] = header
             self.assertEqual(self.ip, get_ip(self.request))
-
-class GetIPNumProxiesTest(TestCase):
-    """Test that get_ip returns the correct last IP when NUM_PROXIES is configured
-    """
-
-    def setUp(self):
-        self.request = MockRequest()
-
-    def test_header_ordering(self):
-        self.ip = '2.2.2.2'
-
-        valid_headers = [
-            '4.4.4.4, 3.3.3.3, 2.2.2.2, 1.1.1.1',
-            '         3.3.3.3, 2.2.2.2, 1.1.1.1',
-            '                  2.2.2.2, 1.1.1.1',
-        ]
-
-        for header in valid_headers:
-            self.request.META[settings.AXES_REVERSE_PROXY_HEADER] = header
-            self.assertEqual(self.ip, get_ip(self.request))
-
-    def test_invalid_headers_too_few(self):
-        self.request.META[settings.AXES_REVERSE_PROXY_HEADER] = '1.1.1.1'
-        with self.assertRaises(Warning):
-            get_ip(self.request)
-
-    def test_invalid_headers_no_ip(self):
-        self.request.META[settings.AXES_REVERSE_PROXY_HEADER] = ''
-        with self.assertRaises(Warning):
-            get_ip(self.request)
