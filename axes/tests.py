@@ -23,6 +23,9 @@ from axes.signals import user_locked_out
 from axes.utils import reset, iso8601
 
 
+TEST_COOLOFF_TIME = datetime.timedelta(seconds=2)
+
+
 class MockRequest:
     def __init__(self):
         self.META = dict()
@@ -140,17 +143,19 @@ class AccessAttemptTest(TestCase):
         self.assertNotEquals(AccessLog.objects.latest('id').logout_time, None)
         self.assertContains(response, 'Logged out')
 
+    @patch('axes.decorators.COOLOFF_TIME', TEST_COOLOFF_TIME)
     def test_cooling_off(self):
         """Tests if the cooling time allows a user to login
         """
         self.test_failure_limit_once()
 
         # Wait for the cooling off period
-        time.sleep(COOLOFF_TIME.total_seconds())
+        time.sleep(TEST_COOLOFF_TIME.total_seconds())
 
         # It should be possible to login again, make sure it is.
         self.test_valid_login()
 
+    @patch('axes.decorators.COOLOFF_TIME', TEST_COOLOFF_TIME)
     def test_cooling_off_for_trusted_user(self):
         """Test the cooling time for a trusted user
         """
