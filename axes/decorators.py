@@ -1,39 +1,37 @@
+from datetime import timedelta
 import json
 import logging
 from socket import inet_pton, AF_INET6
 from hashlib import md5
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth import logout
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
-from django.utils import six
-from django.utils import timezone as datetime
-from django.core.cache import cache
 
-from axes.models import AccessAttempt
-from axes.models import AccessLog
-from axes.settings import *
-from axes.signals import user_locked_out
+from axes import get_version
+from axes.conf import settings
+from axes.attempts import is_already_locked
 from axes.utils import iso8601
-import axes
+from axes.signals import *      # load all signals
 
-log = logging.getLogger(LOGGER)
-if VERBOSE:
+
+log = logging.getLogger(settings.AXES_LOGGER)
+if settings.AXES_VERBOSE:
     log.info('AXES: BEGIN LOG')
-    log.info('AXES: Using django-axes ' + axes.get_version())
-    if AXES_ONLY_USER_FAILURES:
+    log.info('AXES: Using django-axes ' + get_version())
+    if settings.AXES_ONLY_USER_FAILURES:
         log.info('AXES: blocking by username only.')
-    elif LOCK_OUT_BY_COMBINATION_USER_AND_IP:
+    elif settings.AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP:
         log.info('AXES: blocking by combination of username and IP.')
     else:
         log.info('AXES: blocking by IP only.')
 
 
-if BEHIND_REVERSE_PROXY:
+if settings.AXES_BEHIND_REVERSE_PROXY:
     log.debug('AXES: Axes is configured to be behind reverse proxy')
-    log.debug('AXES: Looking for header value %s', REVERSE_PROXY_HEADER)
+    log.debug(
+        'AXES: Looking for header value %s', settings.AXES_REVERSE_PROXY_HEADER
+    )
     log.debug(
         'AXES: Number of proxies configured: {} '
         '(please check this if you are using a custom header)'.format(
@@ -207,158 +205,39 @@ def _get_user_attempts(request):
         attempts = AccessAttempt.objects.filter(
             ip_address=ip, username=username, trusted=True
         )
-
-    if not attempts:
-        params = {'trusted': False}
-
-        if AXES_ONLY_USER_FAILURES:
-            params['username'] = username
-        elif LOCK_OUT_BY_COMBINATION_USER_AND_IP:
-            params['username'] = username
-            params['ip_address'] = ip
-        else:
-            params['ip_address'] = ip
-
-        if USE_USER_AGENT:
-            params['user_agent'] = ua
-
-        attempts = AccessAttempt.objects.filter(**params)
-
-    return attempts
-
-
-def get_user_attempts(request):
-    objects_deleted = False
-    attempts = _get_user_attempts(request)
-    cache_hash_key = get_cache_key(request)
-    cache_timeout = get_cache_timeout()
-
-    if COOLOFF_TIME:
-        for attempt in attempts:
-            if attempt.attempt_time + COOLOFF_TIME < datetime.now():
-                if attempt.trusted:
-                    attempt.failures_since_start = 0
-                    attempt.save()
-                    cache.set(cache_hash_key, 0, cache_timeout)
-                else:
-                    attempt.delete()
-                    objects_deleted = True
-                    failures_cached = cache.get(cache_hash_key)
-                    if failures_cached is not None:
-                        cache.set(cache_hash_key,
-                                  failures_cached - 1,
-                                  cache_timeout)
-
-    # If objects were deleted, we need to update the queryset to reflect this,
-    # so force a reload.
-    if objects_deleted:
-        attempts = _get_user_attempts(request)
-
-    return attempts
-
-
-def is_login_failed(response):
-    return (
-        response and
-        not response.has_header('location') and
-        response.status_code != 302
     )
-
-def is_ajax_login_failed(response):
-    return (
-        response and
-        response.status_code != 302 and
-        response.status_code != 200
-    )
-
 
 
 def watch_login(func):
-    """
-    Used to decorate the django.contrib.admin.site.login method.
-    """
-
-    # Don't decorate multiple times
-    if func.__name__ == 'decorated_login':
-        return func
-
-    def decorated_login(request, *args, **kwargs):
-        # share some useful information
-        if func.__name__ != 'decorated_login' and VERBOSE:
-            log_decorated_call(func, args, kwargs)
-
-        # TODO: create a class to hold the attempts records and perform checks
-        # with its methods? or just store attempts=get_user_attempts here and
-        # pass it to the functions
-        # also no need to keep accessing these:
-        # ip = request.META.get('REMOTE_ADDR', '')
-        # ua = request.META.get('HTTP_USER_AGENT', '<unknown>')
-        # username = request.POST.get(USERNAME_FORM_FIELD, None)
-
-        # if the request is currently under lockout, do not proceed to the
+    def inner(request, *args, **kwargs):
+        # If the request is currently under lockout, do not proceed to the
         # login function, go directly to lockout url, do not pass go, do not
         # collect messages about this login attempt
         if is_already_locked(request):
             return lockout_response(request)
 
         # call the login function
-        response = func(request, *args, **kwargs)
+        return func(request, *args, **kwargs)
 
-        if func.__name__ == 'decorated_login':
-            # if we're dealing with this function itself, don't bother checking
-            # for invalid login attempts.  I suppose there's a bunch of
-            # recursion going on here that used to cause one failed login
-            # attempt to generate 10+ failed access attempt records (with 3
-            # failed attempts each supposedly)
-            return response
-
-        if request.method == 'POST':
-            # see if the login was successful
-            if request.is_ajax():
-                login_unsuccessful = is_ajax_login_failed(response)
-            else:
-                login_unsuccessful = is_login_failed(response)
-
-            user_agent = request.META.get('HTTP_USER_AGENT', '<unknown>')[:255]
-            http_accept = request.META.get('HTTP_ACCEPT', '<unknown>')[:1025]
-            path_info = request.META.get('PATH_INFO', '<unknown>')[:255]
-            if not DISABLE_ACCESS_LOG:
-                username = request.POST.get(USERNAME_FORM_FIELD, None)
-                ip_address = get_ip(request)
-
-                if login_unsuccessful or not DISABLE_SUCCESS_ACCESS_LOG:
-                    AccessLog.objects.create(
-                        user_agent=user_agent,
-                        ip_address=ip_address,
-                        username=username,
-                        http_accept=http_accept,
-                        path_info=path_info,
-                        trusted=not login_unsuccessful,
-                    )
-                if not login_unsuccessful and not DISABLE_SUCCESS_ACCESS_LOG:
-                    log_successful_attempt(username, ip_address,
-                                           user_agent, path_info)
-
-            if check_request(request, login_unsuccessful):
-                return response
-
-            return lockout_response(request)
-
-        return response
-
-    return decorated_login
+    return inner
 
 
 def lockout_response(request):
     context = {
-        'failure_limit': FAILURE_LIMIT,
-        'username': request.POST.get(USERNAME_FORM_FIELD, '')
+        'failure_limit': settings.AXES_FAILURE_LIMIT,
+        'username': request.POST.get(settings.AXES_USERNAME_FORM_FIELD, '')
     }
 
-    if request.is_ajax():
-        if COOLOFF_TIME:
-            context.update({'cooloff_time': iso8601(COOLOFF_TIME)})
+    cool_off = settings.AXES_COOLOFF_TIME
+    if cool_off:
+        if (isinstance(cool_off, int) or isinstance(cool_off, float)):
+            cool_off = timedelta(hours=cool_off)
 
+        context.update({
+            'cooloff_time': iso8601(cool_off)
+        })
+
+    if request.is_ajax():
         return HttpResponse(
             json.dumps(context),
             content_type='application/json',
@@ -375,12 +254,12 @@ def lockout_response(request):
         content = template.render(context, request)
         return HttpResponse(content, status=403)
 
-    elif LOCKOUT_URL:
-        return HttpResponseRedirect(LOCKOUT_URL)
+    elif settings.AXES_LOCKOUT_URL:
+        return HttpResponseRedirect(settings.AXES_LOCKOUT_URL)
 
     else:
         msg = 'Account locked: too many login attempts. {0}'
-        if COOLOFF_TIME:
+        if settings.AXES_COOLOFF_TIME:
             msg = msg.format('Please try again later.')
         else:
             msg = msg.format('Contact an admin to unlock your account.')
