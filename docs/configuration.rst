@@ -49,6 +49,8 @@ These should be defined in your ``settings.py`` file.
   Default: ``True``
 * ``AXES_USERNAME_FORM_FIELD``: the name of the form field that contains your
   users usernames. Default: ``username``
+* ``AXES_PASSWORD_FORM_FIELD``: the name of the form field that contains your
+  users password. Default: ``password``
 * ``AXES_LOCK_OUT_BY_COMBINATION_USER_AND_IP``: If ``True`` prevents the login
   from IP under a particular user if the attempt limit has been exceeded,
   otherwise lock out based on IP.
