@@ -262,7 +262,7 @@ def lockout_response(request):
         content = template.render(context, request)
         return HttpResponse(content, status=403)
 
-    elif settings.AXES_LOCKOUT_URL:
+    if settings.AXES_LOCKOUT_URL:
         return HttpResponseRedirect(settings.AXES_LOCKOUT_URL)
 
     else:
