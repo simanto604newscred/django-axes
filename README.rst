@@ -39,9 +39,9 @@ https://github.com/jazzband/django-axes/issues
 Contributing
 ------------
 
-Open issues and pull requests against the ``development`` branch.
+Please open issues and pull requests for contributions and patches.
 
-Please separate proposed changes into small, different patches by type
+Separate the proposed changes into small, distinct patches by type
 so that they can be merged faster into upstream and released quicker:
 
 * Feature
