@@ -1,20 +1,14 @@
 from __future__ import unicode_literals
 
-from datetime import timedelta
 from functools import wraps
-import json
 import logging
 from socket import inet_pton, AF_INET6
 from hashlib import md5
 
-from django.http import HttpResponse
-from django.http import HttpResponseRedirect
-from django.shortcuts import render
-
 from axes import get_version
 from axes.conf import settings
 from axes.attempts import is_already_locked
-from axes.utils import iso8601, get_client_username, get_lockout_message
+from axes.utils import get_lockout_response
 
 log = logging.getLogger(settings.AXES_LOGGER)
 if settings.AXES_VERBOSE:
@@ -212,7 +206,7 @@ def _get_user_attempts(request):
 def axes_dispatch(func):
     def inner(request, *args, **kwargs):
         if is_already_locked(request):
-            return lockout_response(request)
+            return get_lockout_response(request)
 
         return func(request, *args, **kwargs)
 
@@ -223,7 +217,7 @@ def axes_form_invalid(func):
     @wraps(func)
     def inner(self, *args, **kwargs):
         if is_already_locked(self.request):
-            return lockout_response(self.request)
+            return get_lockout_response(self.request)
 
         return func(self, *args, **kwargs)
 
