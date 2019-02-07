@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from functools import wraps
 import logging
 from socket import inet_pton, AF_INET6
