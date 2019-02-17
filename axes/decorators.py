@@ -3,7 +3,7 @@ import logging
 from socket import inet_pton, AF_INET6
 from hashlib import md5
 
-from axes.attempts import is_already_locked
+from axes.handlers.proxy import AxesProxyHandler
 from axes.utils import get_lockout_response
 
 
@@ -190,10 +190,10 @@ def _get_user_attempts(request):
 
 def axes_dispatch(func):
     def inner(request, *args, **kwargs):
-        if is_already_locked(request):
-            return get_lockout_response(request)
+        if AxesProxyHandler.is_allowed_to_authenticate(request):
+            return func(request, *args, **kwargs)
 
-        return func(request, *args, **kwargs)
+        return get_lockout_response(request)
 
     return inner
 
@@ -201,10 +201,11 @@ def axes_dispatch(func):
 def axes_form_invalid(func):
     @wraps(func)
     def inner(self, *args, **kwargs):
-        if is_already_locked(self.request):
-            return get_lockout_response(self.request)
+        if AxesProxyHandler.is_allowed_to_authenticate(self.request):
+            return func(self, *args, **kwargs)
 
-        return func(self, *args, **kwargs)
+        return get_lockout_response(self.request)
+
 
     return inner
 

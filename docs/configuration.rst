@@ -236,7 +236,7 @@ These should be defined in your ``settings.py`` file.
   timedelta object or an integer. If an integer, will be interpreted as a
   number of hours.  Default: ``None``
 * ``AXES_HANDLER``: If set, overrides the default signal handler backend.
-  Default: ``'axes.handlers.AxesHandler'``
+  Default: ``'axes.handlers.database.AxesDatabaseHandler'``
 * ``AXES_LOGGER``: If set, specifies a logging mechanism for Axes to use.
   Default: ``'axes.watch_login'``
 * ``AXES_LOCKOUT_TEMPLATE``: If set, specifies a template to render when a
