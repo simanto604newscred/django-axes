@@ -4,7 +4,7 @@ from socket import inet_pton, AF_INET6
 from hashlib import md5
 
 from axes.handlers.proxy import AxesProxyHandler
-from axes.utils import get_lockout_response
+from axes.helpers import get_lockout_response
 
 
 if settings.AXES_BEHIND_REVERSE_PROXY:
