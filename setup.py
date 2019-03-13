@@ -36,8 +36,6 @@ setup(
         'django',
         'django-appconf>=1.0.3',
         'django-ipware>=2.0.2',
-        'pytz',
-        'six',
     ],
     include_package_data=True,
     packages=find_packages(),
