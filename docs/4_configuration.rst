@@ -1,7 +1,7 @@
 .. _configuration:
 
-4. Configuration
-================
+Configuration
+=============
 
 Minimal Axes configuration is done with just ``settings.py`` updates.
 
@@ -46,7 +46,7 @@ The following ``settings.py`` options are available for customizing Axes behavio
   user is locked out. Template receives ``cooloff_time`` and ``failure_limit`` as
   context variables. Default: ``None``
 * ``AXES_LOCKOUT_URL``: If set, specifies a URL to redirect to on lockout. If
-  both AXES_LOCKOUT_TEMPLATE and AXES_LOCKOUT_URL are set, the template will
+  both ``AXES_LOCKOUT_TEMPLATE`` and ``AXES_LOCKOUT_URL`` are set, the template will
   be used. Default: ``None``
 * ``AXES_VERBOSE``: If ``True``, you'll see slightly more logging for Axes.
   Default: ``True``
