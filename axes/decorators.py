@@ -5,7 +5,6 @@ from hashlib import md5
 
 from axes.handlers.proxy import AxesProxyHandler
 from axes.helpers import get_lockout_response
-from axes.request import AxesHttpRequest
 
 
 if settings.AXES_BEHIND_REVERSE_PROXY:
@@ -190,7 +189,7 @@ def _get_user_attempts(request):
 
 
 def axes_dispatch(func):
-    def inner(request: AxesHttpRequest, *args, **kwargs):
+    def inner(request, *args, **kwargs):
         if AxesProxyHandler.is_allowed(request):
             return func(request, *args, **kwargs)
 
